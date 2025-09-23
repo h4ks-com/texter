@@ -44,4 +44,8 @@ export interface ISessionJoinEvent {
   username: string;
 }
 
-export type P2PEvent = ILiveTypingEvent | IBubbleClaimEvent | IBubbleFinalizeEvent | ISessionJoinEvent;
+export type P2PEvent =
+  | ILiveTypingEvent
+  | IBubbleClaimEvent
+  | IBubbleFinalizeEvent
+  | ISessionJoinEvent;

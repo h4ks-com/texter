@@ -1,9 +1,9 @@
-import express from 'express';
-import {Server} from 'http';
-import {Server as SocketIOServer} from 'socket.io';
+import { Server } from 'node:http';
 import cors from 'cors';
-import {ExpressPeerServer} from 'peer';
-import {ISession} from './types';
+import express from 'express';
+import { ExpressPeerServer } from 'peer';
+import { Server as SocketIOServer } from 'socket.io';
+import type { ISession } from './types';
 
 const app = express();
 app.use(cors());
@@ -11,11 +11,11 @@ app.use(express.json());
 const server = new Server(app);
 const io = new SocketIOServer(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:3001"],
-    methods: ["GET", "POST"]
+    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    methods: ['GET', 'POST'],
   },
   path: '/ws',
-  transports: ['polling']
+  transports: ['polling'],
 });
 
 interface User {
@@ -50,7 +50,7 @@ app.post('/api/sessions', (_req, res) => {
     id: sessionId,
     participants: [],
     createdAt: new Date().toISOString(),
-    users: []
+    users: [],
   };
   sessions.set(sessionId, session);
   res.json({ sessionId });
@@ -66,7 +66,7 @@ app.get('/api/sessions/:id', (req, res) => {
   res.json({
     id: session.id,
     participants: session.participants,
-    createdAt: session.createdAt
+    createdAt: session.createdAt,
   });
 });
 
@@ -84,7 +84,7 @@ io.on('connection', (socket) => {
     }
 
     // Check if username is taken in this session
-    const usernameTaken = session.users.some(user => user.username === data.username);
+    const usernameTaken = session.users.some((user) => user.username === data.username);
     if (usernameTaken) {
       console.log('❌ Username taken:', data.username);
       socket.emit('username-taken');
@@ -96,20 +96,25 @@ io.on('connection', (socket) => {
       id: Math.random().toString(36).substr(2, 9),
       username: data.username,
       socketId: socket.id,
-      sessionId: data.sessionId
+      sessionId: data.sessionId,
     };
 
     session.users.push(currentUser);
     session.participants.push(data.username);
     users.push(currentUser);
 
-    console.log(`✅ User ${data.username} joined session ${data.sessionId} with peer ID ${currentUser.id}`);
-    console.log(`👥 Session now has ${session.users.length} users:`, session.users.map(u => u.username));
+    console.log(
+      `✅ User ${data.username} joined session ${data.sessionId} with peer ID ${currentUser.id}`,
+    );
+    console.log(
+      `👥 Session now has ${session.users.length} users:`,
+      session.users.map((u) => u.username),
+    );
 
     // Send existing peer IDs to the new user FIRST
     const existingPeerIds = session.users
-      .filter(user => user.id !== currentUser!.id)
-      .map(user => ({ id: user.id, username: user.username }));
+      .filter((user) => user.id !== currentUser?.id)
+      .map((user) => ({ id: user.id, username: user.username }));
 
     console.log(`📤 Sending existing peers to ${data.username}:`, existingPeerIds);
     socket.emit('existing-peers', { peerIds: existingPeerIds });
@@ -118,26 +123,30 @@ io.on('connection', (socket) => {
     socket.emit('session-joined', {
       sessionId: data.sessionId,
       userId: currentUser.id,
-      participants: session.participants
+      participants: session.participants,
     });
 
     // Notify other users in session that someone joined (with their peer ID)
     console.log(`📢 Broadcasting user-joined to ${session.users.length - 1} other users`);
-    broadcastToSession(data.sessionId, {
-      type: 'user-joined',
-      username: data.username,
-      userId: currentUser.id,
-      peerId: currentUser.id // Use userId as peerId for PeerJS
-    }, currentUser);
+    broadcastToSession(
+      data.sessionId,
+      {
+        type: 'user-joined',
+        username: data.username,
+        userId: currentUser.id,
+        peerId: currentUser.id, // Use userId as peerId for PeerJS
+      },
+      currentUser,
+    );
   });
 
   socket.on('get-peer-ids', () => {
-    if (currentUser && currentUser.sessionId) {
+    if (currentUser?.sessionId) {
       const sessionData = sessions.get(currentUser.sessionId);
       if (sessionData) {
         const peerIds = sessionData.users
-          .filter(user => user.id !== currentUser!.id)
-          .map(user => ({ id: user.id, username: user.username }));
+          .filter((user) => user.id !== currentUser?.id)
+          .map((user) => ({ id: user.id, username: user.username }));
 
         socket.emit('peer-ids', { peerIds });
       }
@@ -153,20 +162,24 @@ io.on('connection', (socket) => {
       if (currentUser.sessionId) {
         const session = sessions.get(currentUser.sessionId);
         if (session) {
-          session.users = session.users.filter(user => user.id !== currentUser!.id);
-          session.participants = session.participants.filter(p => p !== currentUser!.username);
+          session.users = session.users.filter((user) => user.id !== currentUser?.id);
+          session.participants = session.participants.filter((p) => p !== currentUser?.username);
 
           console.log(`📢 Broadcasting user-left to ${session.users.length} remaining users`);
           // Notify other users in session
-          broadcastToSession(currentUser.sessionId, {
-            type: 'user-left',
-            username: currentUser.username,
-            userId: currentUser.id
-          }, null);
+          broadcastToSession(
+            currentUser.sessionId,
+            {
+              type: 'user-left',
+              username: currentUser.username,
+              userId: currentUser.id,
+            },
+            null,
+          );
         }
       }
 
-      const userIndex = users.findIndex(user => user.id === currentUser!.id);
+      const userIndex = users.findIndex((user) => user.id === currentUser?.id);
       if (userIndex !== -1) {
         users.splice(userIndex, 1);
       }
@@ -175,14 +188,14 @@ io.on('connection', (socket) => {
 });
 
 // Helper function to broadcast messages to all users in a session except the sender
-const broadcastToSession = (sessionId: string, data: any, sender: User | null) => {
+const broadcastToSession = (sessionId: string, data: object, sender: User | null) => {
   const session = sessions.get(sessionId);
   if (!session) {
     console.log('❌ Session not found for broadcast:', sessionId);
     return;
   }
 
-  const recipients = session.users.filter(user => user !== sender);
+  const recipients = session.users.filter((user) => user !== sender);
   console.log(`📤 Broadcasting to ${recipients.length} users in session ${sessionId}:`, data);
 
   recipients.forEach((user) => {
@@ -192,7 +205,7 @@ const broadcastToSession = (sessionId: string, data: any, sender: User | null) =
 };
 
 const peerServer = ExpressPeerServer(server, {
-  path: '/'
+  path: '/',
 });
 
 app.use('/peerjs', peerServer);
@@ -205,4 +218,3 @@ server.listen(PORT, () => {
   console.log(`🤝 PeerJS: http://localhost:${PORT}/peerjs`);
   console.log(`📡 Socket.IO Server ready for connections`);
 });
-

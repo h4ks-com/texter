@@ -6,8 +6,15 @@
     "backend",
     "shared"
   ],
+  "scripts": {
+    "format": "biome format --write .",
+    "check": "biome check .",
+    "fix": "biome check --write .",
+    "lint": "biome lint ."
+  },
   "dependencies": {},
   "devDependencies": {
+    "@biomejs/biome": "^2.0.5",
     "lerna": "^8.1.8"
   }
 }

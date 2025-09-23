@@ -1,5 +1,6 @@
-import {Box, Button, TextField} from "@mui/material"
-import React, {useState} from "react"
+import { Box, Button, TextField } from '@mui/material';
+import type React from 'react';
+import { useState } from 'react';
 
 interface Props {
   onUsernameChosen: (username: string) => void;
@@ -7,10 +8,9 @@ interface Props {
 
 const MIN_USERNAME_LENGTH = 3;
 
-const UsernameInput: React.FC<Props> = ({onUsernameChosen}) => {
+const UsernameInput: React.FC<Props> = ({ onUsernameChosen }) => {
   const [usernameInput, setUsernameInput] = useState<string>(''); // Separate state for username input
   const [usernameError, setUsernameError] = useState<string>(''); // State for username error
-
 
   // Function to handle setting the username
   const handleSetUsername = () => {
@@ -25,24 +25,19 @@ const UsernameInput: React.FC<Props> = ({onUsernameChosen}) => {
   return (
     <Box>
       <TextField
-        label="Pick a Username"
-        variant="outlined"
+        label='Pick a Username'
+        variant='outlined'
         fullWidth
         value={usernameInput}
         onChange={(e) => setUsernameInput(e.target.value)}
         error={!!usernameError}
         helperText={usernameError}
       />
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={handleSetUsername}
-        sx={{mt: 2}}
-      >
+      <Button variant='contained' color='primary' onClick={handleSetUsername} sx={{ mt: 2 }}>
         Set Username
       </Button>
     </Box>
-  )
+  );
 };
 
-export default UsernameInput
+export default UsernameInput;

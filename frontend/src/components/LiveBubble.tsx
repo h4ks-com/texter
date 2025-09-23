@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Box, Paper, Typography, TextField } from '@mui/material';
-import { IBubble } from '../../../shared/types';
+import { Box, Paper, TextField, Typography } from '@mui/material';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { IBubble } from '../../../shared/types';
 
 interface LiveBubbleProps {
   bubble: IBubble;
   currentUserId: string;
-  currentUsername: string;
   onClaim: (bubbleId: string) => void;
   onTextChange: (bubbleId: string, text: string) => void;
   onFinalize: (bubbleId: string) => void;
@@ -14,10 +14,9 @@ interface LiveBubbleProps {
 const LiveBubble: React.FC<LiveBubbleProps> = ({
   bubble,
   currentUserId,
-  currentUsername,
   onClaim,
   onTextChange,
-  onFinalize
+  onFinalize,
 }) => {
   const [localText, setLocalText] = useState(bubble.text);
   const textFieldRef = useRef<HTMLInputElement>(null);
@@ -85,11 +84,11 @@ const LiveBubble: React.FC<LiveBubbleProps> = ({
         opacity: isFinalized ? 0.9 : 1,
         '&:hover': {
           backgroundColor: isEmpty ? '#333' : getBubbleColor(),
-        }
+        },
       }}
     >
       {!isEmpty && (
-        <Typography variant="caption" sx={{ color: '#bbb', marginBottom: 1, display: 'block' }}>
+        <Typography variant='caption' sx={{ color: '#bbb', marginBottom: 1, display: 'block' }}>
           {bubble.ownerName}
           {!isFinalized && ' (editing...)'}
           {bubble.claimedAt && (
@@ -106,33 +105,31 @@ const LiveBubble: React.FC<LiveBubbleProps> = ({
           value={localText}
           onChange={handleTextChange}
           onKeyDown={handleKeyDown}
-          placeholder="Type your message..."
-          variant="standard"
+          placeholder='Type your message...'
+          variant='standard'
           fullWidth
           multiline
           autoFocus
           InputProps={{
             disableUnderline: true,
-            style: { color: getTextColor(), fontSize: '16px' }
+            style: { color: getTextColor(), fontSize: '16px' },
           }}
           sx={{
             '& .MuiInputBase-input': {
               padding: 0,
-            }
+            },
           }}
         />
       ) : (
         <Box sx={{ minHeight: '24px' }}>
           {isEmpty ? (
-            <Typography variant="body2" sx={{ color: '#666', fontStyle: 'italic' }}>
+            <Typography variant='body2' sx={{ color: '#666', fontStyle: 'italic' }}>
               Click to claim this bubble and start typing...
             </Typography>
           ) : (
-            <Typography variant="body1" sx={{ color: getTextColor(), whiteSpace: 'pre-wrap' }}>
+            <Typography variant='body1' sx={{ color: getTextColor(), whiteSpace: 'pre-wrap' }}>
               {localText}
-              {!isFinalized && localText && (
-                <span style={{ opacity: 0.6 }}>|</span>
-              )}
+              {!isFinalized && localText && <span style={{ opacity: 0.6 }}>|</span>}
             </Typography>
           )}
         </Box>

@@ -6,11 +6,11 @@ export interface ISession {
 
 export interface IBubble {
   id: string;
-  ownerId: string;      // User ID who owns this bubble
-  ownerName: string;    // Username who owns this bubble
+  ownerId: string; // User ID who owns this bubble
+  ownerName: string; // Username who owns this bubble
   text: string;
   isFinalized: boolean; // Whether user pressed Enter to finish
-  claimedAt: string;    // When bubble was claimed
+  claimedAt: string; // When bubble was claimed
   finalizedAt?: string; // When bubble was finalized
 }
 
@@ -45,4 +45,9 @@ export interface IPeerRequestSyncEvent {
   requesterId: string;
 }
 
-export type P2PEvent = IBubbleClaimEvent | IBubbleUpdateEvent | IBubbleFinalizeEvent | IBubbleSyncEvent | IPeerRequestSyncEvent;
+export type P2PEvent =
+  | IBubbleClaimEvent
+  | IBubbleUpdateEvent
+  | IBubbleFinalizeEvent
+  | IBubbleSyncEvent
+  | IPeerRequestSyncEvent;

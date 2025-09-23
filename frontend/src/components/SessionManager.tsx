@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Box, Button, TextField, Typography, Paper, Divider } from '@mui/material';
+import { Box, Button, Divider, Paper, TextField, Typography } from '@mui/material';
+import type React from 'react';
+import { useState } from 'react';
 
 interface SessionManagerProps {
   onCreateSession: () => void;
@@ -10,7 +11,7 @@ interface SessionManagerProps {
 const SessionManager: React.FC<SessionManagerProps> = ({
   onCreateSession,
   onJoinSession,
-  isLoading
+  isLoading,
 }) => {
   const [sessionIdInput, setSessionIdInput] = useState('');
 
@@ -27,20 +28,20 @@ const SessionManager: React.FC<SessionManagerProps> = ({
   };
 
   return (
-    <Box display="flex" flexDirection="column" alignItems="center" gap={3}>
-      <Typography variant="h4" component="h1" gutterBottom>
+    <Box display='flex' flexDirection='column' alignItems='center' gap={3}>
+      <Typography variant='h4' component='h1' gutterBottom>
         Live Chat
       </Typography>
 
-      <Typography variant="subtitle1" color="textSecondary" textAlign="center">
+      <Typography variant='subtitle1' color='textSecondary' textAlign='center'>
         Create a new session or join an existing one
       </Typography>
 
       <Paper elevation={3} sx={{ padding: 4, minWidth: '400px' }}>
-        <Box display="flex" flexDirection="column" gap={3}>
+        <Box display='flex' flexDirection='column' gap={3}>
           <Button
-            variant="contained"
-            size="large"
+            variant='contained'
+            size='large'
             onClick={onCreateSession}
             disabled={isLoading}
             fullWidth
@@ -50,20 +51,20 @@ const SessionManager: React.FC<SessionManagerProps> = ({
 
           <Divider>OR</Divider>
 
-          <Box display="flex" flexDirection="column" gap={2}>
+          <Box display='flex' flexDirection='column' gap={2}>
             <TextField
-              label="Session ID"
-              variant="outlined"
+              label='Session ID'
+              variant='outlined'
               value={sessionIdInput}
               onChange={(e) => setSessionIdInput(e.target.value.toUpperCase())}
               onKeyDown={handleKeyDown}
-              placeholder="Enter session ID"
+              placeholder='Enter session ID'
               disabled={isLoading}
               fullWidth
             />
             <Button
-              variant="outlined"
-              size="large"
+              variant='outlined'
+              size='large'
               onClick={handleJoin}
               disabled={isLoading || !sessionIdInput.trim()}
               fullWidth
