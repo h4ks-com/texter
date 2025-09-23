@@ -1,4 +1,13 @@
-import { Box, Container, CssBaseline, createTheme, Paper, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Container,
+  CssBaseline,
+  createTheme,
+  Paper,
+  Snackbar,
+  Typography,
+} from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
@@ -35,6 +44,7 @@ const App: React.FC = () => {
   const [userId, setUserId] = useState<string>('');
   const [_socket, setSocket] = useState<Socket | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
 
   // Use custom hooks for state management
   const { bubbles, handleP2PMessage, initializeBubbles } = useBubbleState();
@@ -62,6 +72,15 @@ const App: React.FC = () => {
   useEffect(() => {
     if (username) {
       localStorage.setItem('username', username);
+    }
+  }, [username]);
+
+  // Handle URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionFromUrl = urlParams.get('session');
+    if (sessionFromUrl && username) {
+      setSessionId(sessionFromUrl);
     }
   }, [username]);
 
@@ -148,6 +167,12 @@ const App: React.FC = () => {
     setSessionId(id);
   };
 
+  const handleShare = () => {
+    const url = `${window.location.origin}?session=${sessionId}`;
+    navigator.clipboard.writeText(url);
+    setSnackbarOpen(true);
+  };
+
   if (!username) {
     return (
       <ThemeProvider theme={theme}>
@@ -184,15 +209,23 @@ const App: React.FC = () => {
       <Container maxWidth='md'>
         <Box my={4}>
           <Paper elevation={1} sx={{ padding: 2, marginBottom: 3 }}>
-            <Typography variant='h6'>
-              Session: {sessionId} | User: {username}
-            </Typography>
-            <Typography variant='caption' color='textSecondary' display='block'>
-              Share the session ID with others to join this chat
-            </Typography>
-            <Typography variant='caption' color='primary' display='block'>
-              Connected to {connections.length} peer(s): {connections.map((c) => c.peer).join(', ')}
-            </Typography>
+            <Box display='flex' justifyContent='space-between' alignItems='center'>
+              <Box>
+                <Typography variant='h6'>
+                  Session: {sessionId} | User: {username}
+                </Typography>
+                <Typography variant='caption' color='textSecondary' display='block'>
+                  Share the session ID with others to join this chat
+                </Typography>
+                <Typography variant='caption' color='primary' display='block'>
+                  Connected to {connections.length} peer(s):{' '}
+                  {connections.map((c) => c.peer).join(', ')}
+                </Typography>
+              </Box>
+              <Button variant='outlined' onClick={handleShare}>
+                Invite User
+              </Button>
+            </Box>
           </Paper>
 
           <Box>
@@ -208,6 +241,13 @@ const App: React.FC = () => {
             ))}
           </Box>
         </Box>
+        <Snackbar
+          open={snackbarOpen}
+          autoHideDuration={2000}
+          onClose={() => setSnackbarOpen(false)}
+          message='Copied to clipboard!'
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        />
       </Container>
     </ThemeProvider>
   );

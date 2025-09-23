@@ -26,11 +26,14 @@ const SessionManager: React.FC<SessionManagerProps> = ({
       handleJoin();
     }
   };
+  const [username, _setUsername] = useState<string>(() => {
+    return localStorage.getItem('username') || '';
+  });
 
   return (
     <Box display='flex' flexDirection='column' alignItems='center' gap={3}>
       <Typography variant='h4' component='h1' gutterBottom>
-        Live Chat
+        Welcome {username ? `${username}` : ''}!
       </Typography>
 
       <Typography variant='subtitle1' color='textSecondary' textAlign='center'>
