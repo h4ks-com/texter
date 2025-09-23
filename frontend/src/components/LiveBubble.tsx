@@ -2,6 +2,7 @@ import { Box, Paper, TextField, Typography } from '@mui/material';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { IBubble } from '../../../shared/types';
+import { getUserColor } from '../utils/bubbleUtils';
 
 interface LiveBubbleProps {
   bubble: IBubble;
@@ -52,10 +53,11 @@ const LiveBubble: React.FC<LiveBubbleProps> = ({
 
   const getBubbleColor = () => {
     if (isEmpty) return '#2a2a2a';
-    if (isFinalized) {
-      return isOwnBubble ? '#1565c0' : '#424242';
+    if (isOwnBubble) {
+      return isFinalized ? '#1565c0' : '#1976d2';
     }
-    return isOwnBubble ? '#1976d2' : '#616161';
+    // Use random color for other users
+    return getUserColor(bubble.ownerName);
   };
 
   const getTextColor = () => {
@@ -70,71 +72,104 @@ const LiveBubble: React.FC<LiveBubbleProps> = ({
   };
 
   return (
-    <Paper
-      elevation={isFinalized ? 3 : 2}
-      onClick={handleClick}
+    <Box
       sx={{
-        padding: 2,
+        display: 'flex',
+        justifyContent: isOwnBubble || isEmpty ? 'flex-end' : 'flex-start',
         marginBottom: 1,
-        backgroundColor: getBubbleColor(),
-        cursor: isEmpty ? 'pointer' : 'default',
-        border: getBorderStyle(),
-        minHeight: '60px',
-        transition: 'all 0.2s ease',
-        opacity: isFinalized ? 0.9 : 1,
-        '&:hover': {
-          backgroundColor: isEmpty ? '#333' : getBubbleColor(),
-        },
+        width: '100%',
       }}
     >
-      {!isEmpty && (
-        <Typography variant='caption' sx={{ color: '#bbb', marginBottom: 1, display: 'block' }}>
-          {bubble.ownerName}
-          {!isFinalized && ' (editing...)'}
-          {bubble.claimedAt && (
-            <span style={{ marginLeft: '8px', opacity: 0.7 }}>
-              {new Date(bubble.claimedAt).toLocaleTimeString()}
-            </span>
-          )}
-        </Typography>
-      )}
+      <Paper
+        elevation={isFinalized ? 3 : 2}
+        onClick={handleClick}
+        sx={{
+          padding: 2,
+          backgroundColor: getBubbleColor(),
+          cursor: isEmpty ? 'pointer' : 'default',
+          border: getBorderStyle(),
+          minHeight: '60px',
+          maxWidth: { xs: '85%', sm: '75%', md: '65%' },
+          minWidth: '200px',
+          transition: 'all 0.2s ease',
+          opacity: isFinalized ? 0.9 : 1,
+          borderRadius: isOwnBubble || isEmpty ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+          '&:hover': {
+            backgroundColor: isEmpty ? '#333' : getBubbleColor(),
+          },
+        }}
+      >
+        {!isEmpty && (
+          <Typography variant='caption' sx={{ color: '#bbb', marginBottom: 1, display: 'block' }}>
+            {bubble.ownerName}
+            {!isFinalized && ' (editing...)'}
+            {bubble.claimedAt && (
+              <span style={{ marginLeft: '8px', opacity: 0.7 }}>
+                {new Date(bubble.claimedAt).toLocaleTimeString()}
+              </span>
+            )}
+          </Typography>
+        )}
 
-      {isOwnBubble && !isFinalized ? (
-        <TextField
-          ref={textFieldRef}
-          value={localText}
-          onChange={handleTextChange}
-          onKeyDown={handleKeyDown}
-          placeholder='Type your message...'
-          variant='standard'
-          fullWidth
-          multiline
-          autoFocus
-          InputProps={{
-            disableUnderline: true,
-            style: { color: getTextColor(), fontSize: '16px' },
-          }}
-          sx={{
-            '& .MuiInputBase-input': {
-              padding: 0,
-            },
-          }}
-        />
-      ) : (
-        <Box sx={{ minHeight: '24px' }}>
-          {isEmpty ? (
-            <Typography variant='body2' sx={{ color: '#666', fontStyle: 'italic' }}>
-              Click to claim this bubble and start typing...
-            </Typography>
-          ) : (
-            <Typography variant='body1' sx={{ color: getTextColor(), whiteSpace: 'pre-wrap' }}>
-              {localText}
-              {!isFinalized && localText && <span style={{ opacity: 0.6 }}>|</span>}
-            </Typography>
-          )}
-        </Box>
-      )}
-    </Paper>
+        {isOwnBubble && !isFinalized ? (
+          <TextField
+            ref={textFieldRef}
+            value={localText}
+            onChange={handleTextChange}
+            onKeyDown={handleKeyDown}
+            placeholder='Type your message...'
+            variant='standard'
+            fullWidth
+            multiline
+            autoFocus
+            InputProps={{
+              disableUnderline: true,
+              style: { color: getTextColor(), fontSize: '16px' },
+            }}
+            sx={{
+              '& .MuiInputBase-input': {
+                padding: 0,
+              },
+            }}
+          />
+        ) : (
+          <Box sx={{ minHeight: '24px' }}>
+            {isEmpty ? (
+              <Typography variant='body2' sx={{ color: '#666', fontStyle: 'italic' }}>
+                Click to claim this bubble and start typing...
+              </Typography>
+            ) : (
+              <Typography
+                variant='body1'
+                sx={{
+                  color: getTextColor(),
+                  whiteSpace: 'pre-wrap',
+                  cursor: 'default',
+                  userSelect: 'text',
+                  '&::after':
+                    !isFinalized && localText && !isOwnBubble
+                      ? {
+                          content: '"|"',
+                          opacity: 0.6,
+                          animation: 'blink 1s infinite',
+                          '@keyframes blink': {
+                            '0%, 50%': { opacity: 0.6 },
+                            '51%, 100%': { opacity: 0 },
+                          },
+                        }
+                      : undefined,
+                }}
+              >
+                {localText}
+                {!isFinalized && localText && isOwnBubble && (
+                  <span style={{ opacity: 0.6 }}>|</span>
+                )}
+              </Typography>
+            )}
+          </Box>
+        )}
+      </Paper>
+    </Box>
   );
 };
 

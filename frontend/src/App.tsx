@@ -1,13 +1,17 @@
 import { Box, Container, CssBaseline, createTheme, Paper, Typography } from '@mui/material';
 import { ThemeProvider } from '@mui/material/styles';
-import Peer, { type DataConnection } from 'peerjs';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { io, type Socket } from 'socket.io-client';
-import type { IBubble, P2PEvent } from '../../shared/types';
+import type { Socket } from 'socket.io-client';
+
+import type { P2PEvent } from '../../shared/types';
 import LiveBubble from './components/LiveBubble';
 import SessionManager from './components/SessionManager';
 import UsernameInput from './components/usernameInput';
+import { useBubbleState } from './hooks/useBubbleState';
+import { usePeerConnection } from './hooks/usePeerConnection';
+import { useSocketConnection } from './hooks/useSocketConnection';
+import { generateBubbleId, sortBubbles } from './utils/bubbleUtils';
 import './App.css';
 
 const theme = createTheme({
@@ -29,12 +33,31 @@ const App: React.FC = () => {
   });
   const [sessionId, setSessionId] = useState<string>('');
   const [userId, setUserId] = useState<string>('');
-  const [bubbles, setBubbles] = useState<IBubble[]>([]);
-  const [peer, setPeer] = useState<Peer | null>(null);
-  const [connections, setConnections] = useState<DataConnection[]>([]);
   const [_socket, setSocket] = useState<Socket | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [pendingPeerIds, setPendingPeerIds] = useState<{ id: string; username: string }[]>([]);
+
+  // Use custom hooks for state management
+  const { bubbles, handleP2PMessage, initializeBubbles } = useBubbleState();
+
+  const { peer, connections, setPendingPeerIds, connectToPeerById, broadcastToAllPeers } =
+    usePeerConnection({
+      userId,
+      bubbles,
+      onP2PMessage: handleP2PMessage,
+      generateBubbleId,
+    });
+
+  // Socket connection management
+  useSocketConnection({
+    username,
+    sessionId,
+    peer,
+    connectToPeerById,
+    setPendingPeerIds,
+    setSocket,
+    setUserId,
+    setSessionId,
+  });
 
   useEffect(() => {
     if (username) {
@@ -42,381 +65,67 @@ const App: React.FC = () => {
     }
   }, [username]);
 
-  const generateBubbleId = useCallback((): string => {
-    return Math.random().toString(36).substr(2, 9);
-  }, []);
-
-  const initializeChat = useCallback(() => {
-    const initialBubble: IBubble = {
-      id: generateBubbleId(),
-      ownerId: '',
-      ownerName: '',
-      text: '',
-      isFinalized: false,
-      claimedAt: '',
-    };
-    setBubbles([initialBubble]);
-  }, [generateBubbleId]);
-
-  const handleP2PMessage = useCallback(
-    (event: P2PEvent) => {
-      switch (event.type) {
-        case 'bubble-claim':
-          setBubbles((prev) => {
-            const bubbleExists = prev.some((bubble) => bubble.id === event.bubbleId);
-
-            if (!bubbleExists) {
-              const newBubble: IBubble = {
-                id: event.bubbleId,
-                ownerId: event.ownerId,
-                ownerName: event.ownerName,
-                text: '',
-                isFinalized: false,
-                claimedAt: event.claimedAt,
-              };
-
-              const updated = [...prev, newBubble];
-
-              const hasEmptyBubble = updated.some((bubble) => !bubble.ownerId);
-              if (!hasEmptyBubble) {
-                updated.push({
-                  id: generateBubbleId(),
-                  ownerId: '',
-                  ownerName: '',
-                  text: '',
-                  isFinalized: false,
-                  claimedAt: '',
-                });
-              }
-
-              return updated;
-            }
-            const updated = prev.map((bubble) =>
-              bubble.id === event.bubbleId
-                ? {
-                    ...bubble,
-                    ownerId: event.ownerId,
-                    ownerName: event.ownerName,
-                    claimedAt: event.claimedAt,
-                  }
-                : bubble,
-            );
-
-            const hasEmptyBubble = updated.some((bubble) => !bubble.ownerId);
-            if (!hasEmptyBubble) {
-              updated.push({
-                id: generateBubbleId(),
-                ownerId: '',
-                ownerName: '',
-                text: '',
-                isFinalized: false,
-                claimedAt: '',
-              });
-            }
-
-            return updated;
-          });
-          break;
-
-        case 'bubble-update':
-          setBubbles((prev) => {
-            const bubbleExists = prev.some((bubble) => bubble.id === event.bubbleId);
-            if (!bubbleExists) return prev;
-
-            return prev.map((bubble) =>
-              bubble.id === event.bubbleId ? { ...bubble, text: event.text } : bubble,
-            );
-          });
-          break;
-
-        case 'bubble-finalize':
-          setBubbles((prev) =>
-            prev.map((bubble) =>
-              bubble.id === event.bubbleId
-                ? { ...bubble, isFinalized: true, finalizedAt: event.finalizedAt }
-                : bubble,
-            ),
-          );
-          break;
-
-        case 'bubble-sync':
-          setBubbles((prev) => {
-            const hasOwnedBubbles = prev.some((bubble) => bubble.ownerId);
-
-            if (!hasOwnedBubbles || prev.length <= 1) {
-              const newBubbles = [...event.bubbles];
-
-              const hasEmptyBubble = newBubbles.some((bubble) => !bubble.ownerId);
-              if (!hasEmptyBubble) {
-                newBubbles.push({
-                  id: generateBubbleId(),
-                  ownerId: '',
-                  ownerName: '',
-                  text: '',
-                  isFinalized: false,
-                  claimedAt: '',
-                });
-              }
-
-              return newBubbles;
-            }
-
-            return prev;
-          });
-          break;
-
-        case 'request-sync':
-          if (event.requesterId !== userId) {
-            const syncEvent: P2PEvent = {
-              type: 'bubble-sync',
-              bubbles: bubbles,
-            };
-            connections.forEach((conn) => {
-              if (conn.open) {
-                conn.send(syncEvent);
-              }
-            });
-          }
-          break;
-      }
-    },
-    [generateBubbleId, userId, bubbles, connections],
-  );
-
-  const setupConnection = useCallback(
-    (conn: DataConnection) => {
-      conn.on('open', () => {
-        setConnections((prev) => [...prev.filter((c) => c.peer !== conn.peer), conn]);
-
-        if (bubbles.length > 0) {
-          const syncEvent: P2PEvent = {
-            type: 'bubble-sync',
-            bubbles: bubbles,
-          };
-          conn.send(syncEvent);
-        }
-      });
-
-      conn.on('data', (data) => {
-        handleP2PMessage(data as P2PEvent);
-      });
-
-      conn.on('error', (error) => {
-        console.error('❌ P2P connection error:', error);
-      });
-
-      conn.on('close', () => {
-        setConnections((prev) => prev.filter((c) => c.peer !== conn.peer));
-      });
-    },
-    [bubbles, handleP2PMessage],
-  );
-
-  const broadcastToAllPeers = useCallback(
-    (event: P2PEvent) => {
-      connections.forEach((conn) => {
-        if (conn.open) {
-          conn.send(event);
-        }
-      });
-    },
-    [connections],
-  );
-
-  const connectToPeerById = useCallback(
-    (peerId: string) => {
-      if (!peer || peerId === userId) return;
-      if (connections.some((conn) => conn.peer === peerId)) return;
-
-      try {
-        const conn = peer.connect(peerId);
-        if (conn) {
-          setupConnection(conn);
-        }
-      } catch (error) {
-        console.error(`❌ Error connecting to peer:`, error);
-      }
-    },
-    [peer, userId, connections, setupConnection],
-  );
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: setupConnection and pendingPeerIds create dependency cycles
+  // Initialize bubbles when peer connection is established
   useEffect(() => {
-    if (!userId) return;
+    if (peer && bubbles.length === 0) {
+      initializeBubbles();
+    }
+  }, [peer, bubbles.length, initializeBubbles]);
 
-    console.log('🔗 Initializing PeerJS with userId:', userId);
-    const newPeer = new Peer(userId, {
-      host: 'localhost',
-      port: 9000,
-      path: '/peerjs',
-    });
+  const handleBubbleClaim = useCallback(
+    (bubbleId: string) => {
+      console.log(`🎯 Claiming bubble ${bubbleId}`);
 
-    newPeer.on('open', (_id) => {
-      console.log('✅ PeerJS connected');
-      setPeer(newPeer);
-      initializeChat();
+      const claimedAt = new Date().toISOString();
+      const event: P2PEvent = {
+        type: 'bubble-claim',
+        bubbleId,
+        ownerId: userId,
+        ownerName: username,
+        claimedAt,
+      };
 
-      if (pendingPeerIds.length > 0) {
-        pendingPeerIds.forEach((peerInfo) => {
-          const conn = newPeer.connect(peerInfo.id);
-          if (conn) {
-            setupConnection(conn);
-          }
-        });
-        setPendingPeerIds([]);
-      }
-    });
+      // Process locally first
+      handleP2PMessage(event);
+      // Then broadcast to peers
+      broadcastToAllPeers(event);
+    },
+    [userId, username, handleP2PMessage, broadcastToAllPeers],
+  );
 
-    newPeer.on('connection', (conn) => {
-      setupConnection(conn);
-    });
+  const handleTextChange = useCallback(
+    (bubbleId: string, text: string) => {
+      const event: P2PEvent = {
+        type: 'bubble-update',
+        bubbleId,
+        text,
+        timestamp: new Date().toISOString(),
+      };
 
-    newPeer.on('error', (error) => {
-      console.error('❌ PeerJS error:', error);
-    });
+      // Process locally first
+      handleP2PMessage(event);
+      // Then broadcast to peers
+      broadcastToAllPeers(event);
+    },
+    [handleP2PMessage, broadcastToAllPeers],
+  );
 
-    return () => {
-      newPeer.destroy();
-    };
-  }, [userId]);
+  const handleBubbleFinalize = useCallback(
+    (bubbleId: string) => {
+      const finalizedAt = new Date().toISOString();
+      const event: P2PEvent = {
+        type: 'bubble-finalize',
+        bubbleId,
+        finalizedAt,
+      };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: connectToPeerById causes infinite re-renders due to connections dependency
-  useEffect(() => {
-    if (!username || !sessionId) return;
-    const socketConnection = io('http://localhost:9000', {
-      path: '/ws',
-      transports: ['polling'],
-    });
-
-    socketConnection.on('connect', () => {
-      console.log('✅ Connected to session');
-      setSocket(socketConnection);
-
-      socketConnection.emit('join-session', {
-        sessionId,
-        username,
-      });
-    });
-
-    socketConnection.on('session-joined', (data) => {
-      setUserId(data.userId);
-    });
-
-    socketConnection.on('username-taken', () => {
-      alert('Username is already taken in this session');
-      setSessionId('');
-    });
-
-    socketConnection.on('session-not-found', () => {
-      alert('Session not found');
-      setSessionId('');
-    });
-
-    socketConnection.on('existing-peers', (data) => {
-      if (peer) {
-        data.peerIds.forEach((peerInfo: { id: string; username: string }) => {
-          connectToPeerById(peerInfo.id);
-        });
-      } else {
-        setPendingPeerIds(data.peerIds);
-      }
-    });
-
-    socketConnection.on('message', (data) => {
-      if (data.type === 'user-joined') {
-        if (peer) {
-          connectToPeerById(data.peerId);
-        } else {
-          setPendingPeerIds((prev) => [...prev, { id: data.peerId, username: data.username }]);
-        }
-      } else if (data.type === 'user-left') {
-        setConnections((prev) => prev.filter((conn) => conn.peer !== data.userId));
-      }
-    });
-
-    socketConnection.on('disconnect', () => {
-      setSocket(null);
-    });
-
-    socketConnection.on('connect_error', (error) => {
-      console.error('❌ Connection error:', error);
-    });
-
-    return () => {
-      socketConnection.disconnect();
-    };
-  }, [username, sessionId]);
-
-  const handleBubbleClaim = (bubbleId: string) => {
-    console.log(`🎯 Claiming bubble ${bubbleId}`);
-
-    const claimedAt = new Date().toISOString(); // Already UTC
-    const event: P2PEvent = {
-      type: 'bubble-claim',
-      bubbleId,
-      ownerId: userId,
-      ownerName: username,
-      claimedAt,
-    };
-
-    // Update local state
-    setBubbles((prev) => {
-      const updated = prev.map((bubble) =>
-        bubble.id === bubbleId
-          ? { ...bubble, ownerId: userId, ownerName: username, claimedAt }
-          : bubble,
-      );
-
-      // Add new empty bubble if needed
-      const hasEmptyBubble = updated.some((bubble) => !bubble.ownerId);
-      if (!hasEmptyBubble) {
-        updated.push({
-          id: generateBubbleId(),
-          ownerId: '',
-          ownerName: '',
-          text: '',
-          isFinalized: false,
-          claimedAt: '',
-        });
-      }
-
-      return updated;
-    });
-
-    broadcastToAllPeers(event);
-  };
-
-  const handleTextChange = (bubbleId: string, text: string) => {
-    const event: P2PEvent = {
-      type: 'bubble-update',
-      bubbleId,
-      text,
-      timestamp: new Date().toISOString(),
-    };
-
-    setBubbles((prev) =>
-      prev.map((bubble) => (bubble.id === bubbleId ? { ...bubble, text } : bubble)),
-    );
-
-    broadcastToAllPeers(event);
-  };
-
-  const handleBubbleFinalize = (bubbleId: string) => {
-    const finalizedAt = new Date().toISOString();
-    const event: P2PEvent = {
-      type: 'bubble-finalize',
-      bubbleId,
-      finalizedAt,
-    };
-
-    setBubbles((prev) =>
-      prev.map((bubble) =>
-        bubble.id === bubbleId ? { ...bubble, isFinalized: true, finalizedAt } : bubble,
-      ),
-    );
-
-    broadcastToAllPeers(event);
-  };
+      // Process locally first
+      handleP2PMessage(event);
+      // Then broadcast to peers
+      broadcastToAllPeers(event);
+    },
+    [handleP2PMessage, broadcastToAllPeers],
+  );
 
   const createSession = async () => {
     setIsLoading(true);
@@ -487,23 +196,16 @@ const App: React.FC = () => {
           </Paper>
 
           <Box>
-            {bubbles
-              .sort((a, b) => {
-                if (!a.ownerId && !b.ownerId) return 0;
-                if (!a.ownerId) return 1;
-                if (!b.ownerId) return -1;
-                return new Date(a.claimedAt).getTime() - new Date(b.claimedAt).getTime();
-              })
-              .map((bubble, _index) => (
-                <LiveBubble
-                  key={bubble.id}
-                  bubble={bubble}
-                  currentUserId={userId}
-                  onClaim={handleBubbleClaim}
-                  onTextChange={handleTextChange}
-                  onFinalize={handleBubbleFinalize}
-                />
-              ))}
+            {sortBubbles(bubbles).map((bubble, _index) => (
+              <LiveBubble
+                key={bubble.id}
+                bubble={bubble}
+                currentUserId={userId}
+                onClaim={handleBubbleClaim}
+                onTextChange={handleTextChange}
+                onFinalize={handleBubbleFinalize}
+              />
+            ))}
           </Box>
         </Box>
       </Container>
