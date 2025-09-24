@@ -45,8 +45,9 @@ const App: React.FC = () => {
   const [_socket, setSocket] = useState<Socket | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
-  // Use custom hooks for state management
   const { bubbles, handleP2PMessage, initializeBubbles } = useBubbleState();
 
   const { peer, connections, setPendingPeerIds, connectToPeerById, broadcastToAllPeers } =
@@ -57,7 +58,6 @@ const App: React.FC = () => {
       generateBubbleId,
     });
 
-  // Socket connection management
   useSocketConnection({
     username,
     sessionId,
@@ -75,7 +75,6 @@ const App: React.FC = () => {
     }
   }, [username]);
 
-  // Handle URL parameters
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const sessionFromUrl = urlParams.get('session');
@@ -84,16 +83,106 @@ const App: React.FC = () => {
     }
   }, [username]);
 
-  // Initialize bubbles when peer connection is established
   useEffect(() => {
     if (peer && bubbles.length === 0) {
       initializeBubbles();
     }
   }, [peer, bubbles.length, initializeBubbles]);
 
+  const isUserEditing = useCallback(() => {
+    return bubbles.some((bubble) => bubble.ownerId === userId && !bubble.isFinalized);
+  }, [bubbles, userId]);
+
+  const handleScroll = useCallback(() => {
+    const scrollHeight = Math.max(
+      document.body.scrollHeight,
+      document.documentElement.scrollHeight,
+    );
+    const windowHeight = window.innerHeight;
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const isAtBottom = scrollHeight - scrollTop - windowHeight < 100;
+
+    if (isAtBottom) {
+      setIsAutoScrollEnabled(true);
+      setShowScrollToBottom(false);
+    } else {
+      if (!isUserEditing()) {
+        setIsAutoScrollEnabled(false);
+      }
+      setShowScrollToBottom(true);
+    }
+  }, [isUserEditing]);
+
+  useEffect(() => {
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [handleScroll]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: bubbles dependency needed to trigger auto-scroll when new bubbles are added
+  useEffect(() => {
+    if (isAutoScrollEnabled) {
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+  }, [bubbles, isAutoScrollEnabled]);
+
+  const scrollToBottom = useCallback(() => {
+    window.scrollTo(0, document.body.scrollHeight);
+    setIsAutoScrollEnabled(true);
+    setShowScrollToBottom(false);
+  }, []);
+
+  const handleBubbleFinalize = useCallback(
+    (bubbleId: string) => {
+      const finalizedAt = new Date().toISOString();
+      const event: P2PEvent = {
+        type: 'bubble-finalize',
+        bubbleId,
+        finalizedAt,
+      };
+
+      handleP2PMessage(event);
+      broadcastToAllPeers(event);
+
+      if (isAutoScrollEnabled) {
+        setTimeout(() => {
+          window.scrollTo(0, document.body.scrollHeight);
+        }, 100);
+      }
+    },
+    [handleP2PMessage, broadcastToAllPeers, isAutoScrollEnabled],
+  );
+
   const handleBubbleClaim = useCallback(
     (bubbleId: string) => {
-      console.log(`🎯 Claiming bubble ${bubbleId}`);
+      const currentEditingBubble = bubbles.find(
+        (bubble) => bubble.ownerId === userId && !bubble.isFinalized,
+      );
+
+      if (currentEditingBubble) {
+        const targetBubble = bubbles.find((bubble) => bubble.id === bubbleId);
+        if (targetBubble && !targetBubble.ownerId && !currentEditingBubble.text.trim()) {
+          return;
+        }
+
+        if (targetBubble && !targetBubble.ownerId && currentEditingBubble.text.trim()) {
+          handleBubbleFinalize(currentEditingBubble.id);
+          setTimeout(() => {
+            const claimedAt = new Date().toISOString();
+            const event: P2PEvent = {
+              type: 'bubble-claim',
+              bubbleId,
+              ownerId: userId,
+              ownerName: username,
+              claimedAt,
+            };
+            handleP2PMessage(event);
+            broadcastToAllPeers(event);
+          }, 50);
+          return;
+        }
+
+        return;
+      }
 
       const claimedAt = new Date().toISOString();
       const event: P2PEvent = {
@@ -104,13 +193,32 @@ const App: React.FC = () => {
         claimedAt,
       };
 
-      // Process locally first
       handleP2PMessage(event);
-      // Then broadcast to peers
       broadcastToAllPeers(event);
     },
-    [userId, username, handleP2PMessage, broadcastToAllPeers],
+    [userId, username, handleP2PMessage, broadcastToAllPeers, bubbles, handleBubbleFinalize],
   );
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (event.code === 'Space' && !isUserEditing()) {
+        const target = event.target as HTMLElement;
+        if (!target.matches('input, textarea, [contenteditable]')) {
+          event.preventDefault();
+          const emptyBubble = bubbles.find((bubble) => !bubble.ownerId);
+          if (emptyBubble) {
+            handleBubbleClaim(emptyBubble.id);
+          }
+        }
+      }
+    },
+    [isUserEditing, bubbles, handleBubbleClaim],
+  );
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
 
   const handleTextChange = useCallback(
     (bubbleId: string, text: string) => {
@@ -119,23 +227,6 @@ const App: React.FC = () => {
         bubbleId,
         text,
         timestamp: new Date().toISOString(),
-      };
-
-      // Process locally first
-      handleP2PMessage(event);
-      // Then broadcast to peers
-      broadcastToAllPeers(event);
-    },
-    [handleP2PMessage, broadcastToAllPeers],
-  );
-
-  const handleBubbleFinalize = useCallback(
-    (bubbleId: string) => {
-      const finalizedAt = new Date().toISOString();
-      const event: P2PEvent = {
-        type: 'bubble-finalize',
-        bubbleId,
-        finalizedAt,
       };
 
       // Process locally first
@@ -241,6 +332,42 @@ const App: React.FC = () => {
               />
             ))}
           </Box>
+
+          {showScrollToBottom && (
+            <Box
+              position='fixed'
+              bottom={16}
+              right={16}
+              sx={{
+                backgroundColor: 'rgba(25, 118, 210, 0.9)',
+                borderRadius: '50%',
+                width: 48,
+                height: 48,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                zIndex: 1000,
+                '&:hover': {
+                  backgroundColor: 'rgba(25, 118, 210, 1)',
+                  transform: 'scale(1.1)',
+                },
+              }}
+              onClick={scrollToBottom}
+            >
+              <Typography
+                sx={{
+                  color: 'white',
+                  fontSize: '20px',
+                  fontWeight: 'bold',
+                  transform: 'rotate(90deg)',
+                }}
+              >
+                ➤
+              </Typography>
+            </Box>
+          )}
         </Box>
         <Snackbar
           open={snackbarOpen}
