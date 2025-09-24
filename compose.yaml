@@ -1,0 +1,6 @@
+services:
+  texter:
+    build: .
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    env_file: .env

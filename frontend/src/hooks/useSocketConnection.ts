@@ -28,7 +28,8 @@ export const useSocketConnection = ({
   // biome-ignore lint/correctness/useExhaustiveDependencies: connectToPeerById, peer, setPendingPeerIds, setSessionId, setSocket, setUserId cause re-renders or are setters
   useEffect(() => {
     if (!username || !sessionId) return;
-    const socketConnection = io('http://localhost:9000', {
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || window.location.origin;
+    const socketConnection = io(backendUrl, {
       path: '/ws',
       transports: ['polling'],
     });

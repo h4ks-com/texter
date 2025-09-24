@@ -1,21 +1,28 @@
 import { Server } from 'node:http';
 import cors from 'cors';
 import express from 'express';
+import path from 'path';
 import { ExpressPeerServer } from 'peer';
 import { Server as SocketIOServer } from 'socket.io';
-import type { ISession } from './types';
+import type { ISession } from '../../shared/types';
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN || '*',
+    methods: ['GET', 'POST'],
+  }),
+);
 app.use(express.json());
+
 const server = new Server(app);
 const io = new SocketIOServer(server, {
   cors: {
-    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    origin: process.env.CORS_ORIGIN || '*',
     methods: ['GET', 'POST'],
   },
   path: '/ws',
-  transports: ['polling'],
+  transports: ['polling', 'websocket'],
 });
 
 interface User {
@@ -35,16 +42,11 @@ const users: User[] = [];
 
 // Generate session ID
 const generateSessionId = (): string => {
-  return Math.random().toString(36).substr(2, 9).toUpperCase();
+  return Math.random().toString(36).substring(2, 11).toUpperCase();
 };
 
-// API Routes
-app.get('/', (_req, res) => {
-  res.send('Live Chat P2P Server is running');
-});
-
 // Create a new session
-app.post('/api/sessions', (_req, res) => {
+app.post('/api/v1/sessions', (_req, res) => {
   const sessionId = generateSessionId();
   const session: SessionData = {
     id: sessionId,
@@ -57,7 +59,7 @@ app.post('/api/sessions', (_req, res) => {
 });
 
 // Get session info
-app.get('/api/sessions/:id', (req, res) => {
+app.get('/api/v1/sessions/:id', (req, res) => {
   const session = sessions.get(req.params.id);
   if (!session) {
     res.status(404).json({ error: 'Session not found' });
@@ -93,7 +95,7 @@ io.on('connection', (socket) => {
 
     // Create user and add to session
     currentUser = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: Math.random().toString(36).substring(2, 11),
       username: data.username,
       socketId: socket.id,
       sessionId: data.sessionId,
@@ -210,11 +212,25 @@ const peerServer = ExpressPeerServer(server, {
 
 app.use('/peerjs', peerServer);
 
-const PORT = 9000;
-server.listen(PORT, () => {
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../../../frontend/build/index.html'));
+});
+
+app.use(express.static(path.join(__dirname, '../../../../frontend/build')));
+
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api/') || req.path.startsWith('/peerjs') || req.path.startsWith('/ws')) {
+    res.status(404).json({ error: 'Route not found' });
+    return;
+  }
+  res.sendFile(path.join(__dirname, '../../../../frontend/build/index.html'));
+});
+
+const PORT = parseInt(process.env.BACKEND_PORT || '9000');
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server is running on port ${PORT}`);
-  console.log(`🌐 HTTP API: http://localhost:${PORT}`);
-  console.log(`🔌 Socket.IO: http://localhost:${PORT}/ws`);
-  console.log(`🤝 PeerJS: http://localhost:${PORT}/peerjs`);
+  console.log(`🌐 HTTP API: http://0.0.0.0:${PORT}`);
+  console.log(`🔌 Socket.IO: http://0.0.0.0:${PORT}/ws`);
+  console.log(`🤝 PeerJS: http://0.0.0.0:${PORT}/peerjs`);
   console.log(`📡 Socket.IO Server ready for connections`);
 });

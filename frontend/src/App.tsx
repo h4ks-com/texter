@@ -149,7 +149,8 @@ const App: React.FC = () => {
   const createSession = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:9000/api/sessions', {
+      const backendUrl = process.env.REACT_APP_BACKEND_URL || '';
+      const response = await fetch(`${backendUrl}/api/v1/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });

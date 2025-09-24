@@ -93,9 +93,11 @@ export const usePeerConnection = ({
     if (!userId) return;
 
     console.log('🔗 Initializing PeerJS with userId:', userId);
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || window.location.origin;
+    const url = new URL(backendUrl);
     const newPeer = new Peer(userId, {
-      host: 'localhost',
-      port: 9000,
+      host: url.hostname,
+      port: parseInt(url.port) || (url.protocol === 'https:' ? 443 : 80),
       path: '/peerjs',
     });
 
