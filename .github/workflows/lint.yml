@@ -24,14 +24,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Biome
-        run: npm install -g @biomejs/biome@^2.0.5
-
-      - name: Run Biome check
+      - name: Run Biome check (lint and format)
         run: npm run check
-
-      - name: Check formatting
-        run: biome format --check .
-
-      - name: Run linting
-        run: npm run lint

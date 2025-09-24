@@ -136,7 +136,7 @@ const LiveBubble: React.FC<LiveBubbleProps> = ({
           <Box sx={{ minHeight: '24px' }}>
             {isEmpty ? (
               <Typography variant='body2' sx={{ color: '#666', fontStyle: 'italic' }}>
-                Click to claim this bubble and start typing...
+                Type here...
               </Typography>
             ) : (
               <Typography

@@ -246,7 +246,7 @@ const App: React.FC = () => {
           open={snackbarOpen}
           autoHideDuration={2000}
           onClose={() => setSnackbarOpen(false)}
-          message='Copied to clipboard!'
+          message='Copied URL to clipboard!'
           anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         />
       </Container>
