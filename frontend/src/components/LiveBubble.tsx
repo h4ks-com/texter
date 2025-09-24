@@ -1,8 +1,8 @@
-import { Box, Paper, TextField, Typography } from '@mui/material';
+import { Box, Link, Paper, TextField, Typography } from '@mui/material';
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import type { IBubble } from '../../../shared/types';
-import { getUserColor } from '../utils/bubbleUtils';
+import { getUserColor, parseTextWithUrls } from '../utils/bubbleUtils';
 
 interface LiveBubbleProps {
   bubble: IBubble;
@@ -69,6 +69,39 @@ const LiveBubble: React.FC<LiveBubbleProps> = ({
     if (isEmpty) return '2px dashed #666';
     if (!isFinalized && isOwnBubble) return '2px solid #1976d2';
     return 'none';
+  };
+
+  const renderTextContent = (text: string) => {
+    if (!isFinalized) {
+      return text;
+    }
+
+    const parts = parseTextWithUrls(text);
+
+    return parts.map((part, index) => {
+      if (typeof part === 'string') {
+        return part;
+      } else {
+        return (
+          <Link
+            key={`url-${part.url}-${index}`}
+            href={part.url}
+            target='_blank'
+            rel='noopener noreferrer'
+            sx={{
+              color: 'inherit',
+              textDecoration: 'underline',
+              '&:hover': {
+                textDecoration: 'underline',
+                opacity: 0.8,
+              },
+            }}
+          >
+            {part.display}
+          </Link>
+        );
+      }
+    });
   };
 
   return (
@@ -160,7 +193,7 @@ const LiveBubble: React.FC<LiveBubbleProps> = ({
                       : undefined,
                 }}
               >
-                {localText}
+                {renderTextContent(localText)}
                 {!isFinalized && localText && isOwnBubble && (
                   <span style={{ opacity: 0.6 }}>|</span>
                 )}

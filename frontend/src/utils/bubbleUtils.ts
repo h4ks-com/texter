@@ -48,3 +48,35 @@ export const canCreateNewBubble = (bubbles: IBubble[]): boolean => {
   // Only allow creating a new bubble if there are no empty bubbles
   return !bubbles.some((bubble) => !bubble.ownerId && !bubble.text.trim());
 };
+
+export const parseTextWithUrls = (
+  text: string,
+): (string | { type: 'url'; url: string; display: string })[] => {
+  const urlRegex = /https?:\/\/[^\s<>"'`]+/g;
+  const parts: (string | { type: 'url'; url: string; display: string })[] = [];
+  let lastIndex = 0;
+
+  text.replace(urlRegex, (match, offset) => {
+    // Add text before URL
+    if (offset > lastIndex) {
+      parts.push(text.slice(lastIndex, offset));
+    }
+
+    // Add URL object
+    parts.push({
+      type: 'url',
+      url: match,
+      display: match,
+    });
+
+    lastIndex = offset + match.length;
+    return match;
+  });
+
+  // Add remaining text after last URL
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : [text];
+};
