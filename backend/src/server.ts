@@ -1,7 +1,7 @@
 import { Server } from 'node:http';
+import path from 'node:path';
 import cors from 'cors';
 import express from 'express';
-import path from 'path';
 import { ExpressPeerServer } from 'peer';
 import { Server as SocketIOServer } from 'socket.io';
 import type { ISession } from '../../shared/types';
@@ -212,7 +212,7 @@ const peerServer = ExpressPeerServer(server, {
 
 app.use('/peerjs', peerServer);
 
-app.get('/', (req, res) => {
+app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, '../../../../frontend/build/index.html'));
 });
 
@@ -230,7 +230,7 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../../../../frontend/build/index.html'));
 });
 
-const PORT = parseInt(process.env.BACKEND_PORT || '9000');
+const PORT = parseInt(process.env.BACKEND_PORT || '9000', 10);
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server is running on port ${PORT}`);
   console.log(`🌐 HTTP API: http://0.0.0.0:${PORT}`);

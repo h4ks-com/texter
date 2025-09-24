@@ -97,7 +97,7 @@ export const usePeerConnection = ({
     const url = new URL(backendUrl);
     const newPeer = new Peer(userId, {
       host: url.hostname,
-      port: parseInt(url.port) || (url.protocol === 'https:' ? 443 : 80),
+      port: parseInt(url.port, 10) || (url.protocol === 'https:' ? 443 : 80),
       path: '/peerjs',
     });
 
