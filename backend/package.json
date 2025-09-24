@@ -1,5 +1,6 @@
 {
-  "name": "backend",
+  "name": "texter-backend",
+  "description": "Backend for Texter - Experimental p2p live texting app",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -7,10 +8,9 @@
     "start": "ts-node src/server.ts",
     "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/server.ts"
   },
-  "keywords": [],
+  "keywords": ["p2p", "texting", "websocket", "peerjs"],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",

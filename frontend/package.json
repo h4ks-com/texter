@@ -1,5 +1,6 @@
 {
-  "name": "frontend",
+  "name": "texter-frontend",
+  "description": "Frontend for Texter - Experimental p2p live texting app",
   "version": "0.1.0",
   "private": true,
   "dependencies": {

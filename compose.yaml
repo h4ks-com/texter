@@ -1,3 +1,5 @@
+name: texter
+
 services:
   texter:
     build: .

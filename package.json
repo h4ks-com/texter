@@ -1,5 +1,6 @@
 {
-  "name": "root",
+  "name": "texter",
+  "description": "Experimental p2p live texting app",
   "private": true,
   "workspaces": [
     "frontend",

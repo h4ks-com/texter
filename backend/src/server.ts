@@ -219,7 +219,11 @@ app.get('/', (req, res) => {
 app.use(express.static(path.join(__dirname, '../../../../frontend/build')));
 
 app.get('*', (req, res) => {
-  if (req.path.startsWith('/api/') || req.path.startsWith('/peerjs') || req.path.startsWith('/ws')) {
+  if (
+    req.path.startsWith('/api/') ||
+    req.path.startsWith('/peerjs') ||
+    req.path.startsWith('/ws')
+  ) {
     res.status(404).json({ error: 'Route not found' });
     return;
   }
